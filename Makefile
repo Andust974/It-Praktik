@@ -1,9 +1,9 @@
 SHELL := /bin/bash
 
-.PHONY: setup lint fmt typecheck test run dev build clean
+.PHONY: setup lint fmt typecheck test run dev build clean validate bump
 
 help:
-	@echo "Targets: setup lint fmt typecheck test run dev build clean"
+	@echo "Targets: setup lint fmt typecheck test run dev build clean validate bump"
 
 setup:
 	pip install -U pip
@@ -26,6 +26,12 @@ run:
 # Dev helper (CLI)
 dev:
 	python -m it_praktik.cli --help
+
+validate:
+	python scripts/validate_module.py
+
+bump:
+	python scripts/bump_version.py --set $(VERSION)
 
 build:
 	python -m build
