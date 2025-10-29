@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "it-praktik"
-version = "0.1.0"
+version = "1.0.0"
 description = "IT Praktik core service (FastAPI + CLI)."
 authors = [{name = "Andrey"}]
 readme = "README.md"
