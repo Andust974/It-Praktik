@@ -3,12 +3,9 @@ import time
 from collections import deque
 from . import __version__
 from .rag_api import router as rag_router
-
+from .logs_api import router as logs_router
 app = FastAPI(title='IT Praktik', version=__version__)
-
-# --- Metrics (rag query p95) ---
 _rag_lat = deque(maxlen=200)
-
 @app.middleware('http')
 async def rag_latency_mw(request: Request, call_next):
     if request.url.path == '/rag/query':
@@ -18,7 +15,6 @@ async def rag_latency_mw(request: Request, call_next):
         _rag_lat.append(dt)
         return resp
     return await call_next(request)
-
 @app.get('/metrics')
 def metrics():
     if _rag_lat:
@@ -27,17 +23,12 @@ def metrics():
         p95 = arr[idx]
     else:
         p95 = 0.0
-    # Prometheus-like text
-    body = f'itp_rag_query_latency_p95_seconds {p95:.6f}
-'
-    return body
-
+    return f'itp_rag_query_latency_p95_seconds {p95:.6f}\n'
 @app.get('/health')
 def health():
     return {'status': 'ok', 'version': __version__}
-
 @app.get('/ready')
 def ready():
     return {'ready': True, 'checks': {'api': True}, 'version': __version__}
-
 app.include_router(rag_router)
+app.include_router(logs_router)
