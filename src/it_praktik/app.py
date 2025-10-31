@@ -6,6 +6,8 @@ from .rag_api import router as rag_router
 from .logs_api import router as logs_router
 from .grep_api import router as grep_router
 from .tests_api import router as tests_router
+from .web_api import router as web_router
+from .diff_api import router as diff_router
 
 app = FastAPI(title='IT Praktik', version=__version__)
 
@@ -43,3 +45,5 @@ app.include_router(rag_router)
 app.include_router(logs_router)
 app.include_router(grep_router)
 app.include_router(tests_router)
+app.include_router(web_router)
+app.include_router(diff_router)
