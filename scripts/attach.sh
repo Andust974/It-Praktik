@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
-set -euo pipefaill
-# attach script: register service without full redeploy (example)
-# 1) ensure venv/requirements are installed elsewhere
-# 2) symlink current src into target path consumed by systemd unit
-TARGET_DIR=/opt/it-praktik/current
-mkdir -p $(dirname \"$TARGET_DIR\"))
-rm -f \"$TARGET_DIR\" || true
-ln -s \"$(pwd)\" \"$TARGET_DIR\"
-# 3) reload systemd if unit exists
-if systemctl cat it-praktik.service >/dev/null 2>&1; then
-  sudo systemctl daemon-reload
-  sudo systemctl try-reload-or-restart it-praktik.service
+set -euo pipefail
+
+# Prepare runtime env for IT Praktik
+mkdir -p logs tmp
+: ${ITP_LOG_DIR:=logs}
+: ${ITP_WEB_ALLOW:=raw.githubusercontent.com,example.com}
+: ${ITP_WEB_MAX_BYTES:=1048576}
+
+echo "[attach] LOG_DIR=$ITP_LOG_DIR"
+echo "[attach] WEB_ALLOW=$ITP_WEB_ALLOW"
+echo "[attach] WEB_MAX_BYTES=$ITP_WEB_MAX_BYTES"
+
+# Example: export minimal token set for tools scope
+if [ -z "${ITP_TOKENS:-}" ]; then
+  export ITP_TOKENS='{"devtoken":["itp:tools"]}'
+  echo "[attach] export ITP_TOKENS for devtoken"
 fi
-echo "Attached to $TARGET_DIR"
+
+echo "[attach] done"

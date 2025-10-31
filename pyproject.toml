@@ -1,0 +1,47 @@
+[project]
+name = "it-praktik"
+version = "1.0.0"
+description = "IT Praktik service (FastAPI tools + CLI)"
+requires-python = ">=3.10"
+authors = [{name="Andust974"}]
+readme = "README.md"
+
+[project.optional-dependencies]
+dev = [
+  "black>=24.3",
+  "ruff>=0.6",
+  "mypy>=1.10",
+  "pytest>=8",
+  "pyyaml>=6",
+  "uvicorn>=0.30",
+  "fastapi>=0.115",
+  "typer[all]>=0.12"
+]
+
+[project.scripts]
+itp = "it_praktik.cli.main:app"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["it_praktik"]
+
+[tool.ruff]
+line-length = 100
+select = [
+  "E", "F", "W", "I"
+]
+ignore = ["E203", "W503"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+strict_optional = false
+check_untyped_defs = true
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']

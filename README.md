@@ -1,35 +1,32 @@
 # IT Praktik
 
-Servis FastAPI s instrumentami dlia razbwitki: RAG-zaprosy (zagushki), logi, grep-suggest, scaffolding testov, web-fetch s RBAC, generatsiya diff-patchey, metrki) q sobytiynnyi JSONL-bus.
+FastAPI-сервис для разработки и диагностики: RAG, парсинг логов, grep/rg suggest, scaffold тестов, diff-патчи, безопасный web-fetch, метрики и события.
 
-## Quickstart
-``bash
-python -m pip install --upgrade pip
-pip install -e .
-PYTHONPatTH=src uvicorn it_praktik.app:app --reload --host 0.0.0.0 --port 8000
-``
-``
-@! Config zerna okrujenie
-- `ITP_TOKENS` – JSON « tokenmi/skoupami, narp.: `{"devtoken":["itp:tools"]}`
-- `ITP_WEB_ALLOW` – domeny allowlist dlya `/web/fetch` (po umolchaniu `raw.githubusercontent.com,example.com`)
-- `ITP_WEB_MAX_BYTES` – limit oveta / baitah (po umolchaniu 1_048_676)
+## Запуск
+1) python -m pip install --upgrade pip
+2) pip install -e .
+3) PYTHONPATH=src uvicorn it_praktik.app:app --reload --host 0.0.0.0 --port 8000
 
-## API
-- `GET /health`, `GET /ready` – statusi
-- `POST /grep/suggest` – generaciya komand rg/grep po YAML-DSL
-ine maribor
-- `POST /tests/scaffold` – dry-run/write zagotovok testov
-- `POST /web/fetch` – chetenie URL (GET/HEAT), **trebuet** Bearer s `itp:tools`
-- `POST /diff/generate` – unified diff-bandl po spisz_fil
-- `GET /metrics` – p95 RAG (backcompat); `GET /metrics/export` – ves komplekt metrkik/
+## Основные эндпоинты
+- POST /rag/query
+- POST /logs/parse
+- POST /grep/suggest
+- POST /tests/scaffold
+- POST /diff/generate
+- POST /web/fetch (RBAC)
+- GET  /metrics/export
+- GET  /health, /ready
 
-## Зарниста
-Eksportuet Prometheus-’svmestimy tekst:
-- `itp_http_requests_total`
-- `itp_rag_query_latency_seconds_p95`
-- `itp_web_fetch_bytes_gauge`
-- `itp_patch_generated_total`
+## Конфигурация окружения
+- ITP_WEB_ALLOW: список доменов для web/fetch (по умолчанию: raw.githubusercontent.com,example.com)
+- ITP_WEB_MAX_BYTES: лимит байт загрузки (по умолчанию: 1048576)
+- ITP_TOKENS: JSON {"<token>":["itp:tools"]} для RBAC
+- ITP_LOG_DIR: каталог логов (по умолчанию: ./logs)
 
-## ԑлемеког
-JSONL-fail `logs/events.jsonl`
-- `itp.web.fetched` – uspehyn�VR� ���G�vV"�&��6�VF(	2��&WB��ƗF��Т��G�F�fb�vV�W&FVF(	26��F�F�fb�&�F���22GF6��FWF6��6�&�G���6��67&�G2�6���э��͡�����͍ɥ��̽��х���͡���L��ɥ�����FVw&G6��&W�W����W&W�w'W�F�6W'f�6�7�Ɩ��VFW����7�7FV�B&V��B�
+## Логи и метрики
+- Логи JSONL: logs/itp.jsonl (obs.log_event)
+- Метрики Prometheus: GET /metrics/export
+
+## Attach/Detach
+- scripts/attach.sh — подготовка окружения
+- scripts/detach.sh — остановка/очистка

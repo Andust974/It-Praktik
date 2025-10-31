@@ -1,0 +1,10 @@
+line-length = 100
+select = [
+  "E", "F", "W",  # pyflakes/pycodestyle
+  "I",             # isort-style imports
+]
+ignore = [
+  "E203", "W503"
+]
+[per-file-ignores]
+# tests allow unused imports, etc.

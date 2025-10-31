@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefaill
-# detach script: remove symlink and rollback
-SITLANK=/opt/it-praktik/current
-rm -f \"$SITLANK\" || true
-echo "Detached from $SITLANK" 
+set -euo pipefail
+
+echo '[detach] nothing to stop; ensure your process manager handles service stop'
+rm -rf tmp/.cache 2>/dev/null || true
+echo '[detach] done'

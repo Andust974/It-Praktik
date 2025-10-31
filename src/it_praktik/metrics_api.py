@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
+from .metrics import export_prom
 
-from . metrics import as_prometheus_text, inc, REQ_TOTAL, REQ_ERR, RL=REF_PREFIX = 'itp'
+router = APIRouter(prefix='/metrics', tags=['metrics'])
 
-router = APIRouter(prefix="/metrics", tags=["metrics"])
-
-@router.get(/export)
+@router.get('/export')
 def export():
-    return as_prometheus_text()
+    text = export_prom()
+    return Response(content=text, media_type='text/plain; version=0.0.4')

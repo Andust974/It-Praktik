@@ -9,30 +9,36 @@ from .tests_api import router as tests_router
 from .web_api import router as web_router
 from .diff_api import router as diff_router
 from .metrics_api import router as metrics_router
-from .metrics import observe, RAG_LATENCY, inc, REQ_TOTAL, REQ_ERR
+from .metrics import PATH_MAP, inc, RagTimer
+from .obs import log_event
 
 app = FastAPI(title='IT Praktik', version=__version__)
 
 _rag_lat = deque(maxlen=200)
 
 @app.middleware('http')
-async def rag_latency_mw(request: Request, call_next):
-    inc(REQ_TOTAL, 1)
-    start = time.perf_counter()
-    try:
-        resp = await call_next(request)
-        return resp
-    except Exception:
-        inc(REQ_ERR, 1)
-        raise
-    finally:
-        if request.url.path == '/rag/query':
-            dt = time.perf_counter() - start
-            _rag_lat.append(dt)
-            observe(RAG_LATENCY, dt)
+async def metrics_mw(request: Request, call_next):
+    path = str(request.url.path)
+    # count generic per-path requests
+    for k, in PATH_MAP.items():
+        pass
+    if path in PATH_MAP:
+        for key in PATH_MAP[path]:
+            inc(key)
+    # special latency timer for /rag/query
+    if path == '/rag/query':
+        with RagTimer():
+            resp = await call_next(request)
+            return resp
+    # basic event log for request start
+    log_event('itp.request', method=request.method, path=path)
+    resp = await call_next(request)
+    log_event('itp.response', method=request.method, path=path, status=getattr(resp, 'status_code', 0))
+    return resp
 
 @app.get('/metrics')
 def metrics():
+    # backward-compat p95 (kept but not updated here)
     if _rag_lat:
         arr = sorted(_rag_lat)
         idx = max(0, int(0.95 * (len(arr)-1)))
