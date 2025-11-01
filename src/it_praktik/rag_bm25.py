@@ -1,75 +1,109 @@
-import math
-import re
-from collections import Counter, defaultdict
+from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
-
-_WORD = re.compile(r'[A-Za-z0-9_]+')
+from typing import List, Tuple, Dict
+import json
+import re
+from fnmatch import fnmatch
 
 @dataclass
 class Doc:
     path: str
+    line: int
     text: str
+
+def _tokenize(s: str) -> List[str]:
+    return re.findall(r"[a-zA-Zа-яА-Я0-9_]{2,}", s.lower())
 
 class BM25:
     def __init__(self, docs: List[Doc], k1: float = 1.5, b: float = 0.75):
-        self.k1 = k1; self.b = b; self.docs = docs; self.N = len(docs)
-        self.avgdl = 0.0; self.df: Dict[str,int] = defaultdict(int); self.tf: List[Dict[str,int]] = []; self.doc_len: List[int] = []
+        self.k1 = k1
+        self.b = b
+        self.docs = docs
+        self.avgdl = 0.0
+        self.df: Dict[str, int] = {}
+        self.tf: List[Dict[str, int]] = []
+        self.N = 0
         self._build()
-    @staticmethod
-    def _tok(s: str) -> List[str]:
-        return [t.lower() for t in _WORD.findall(s)]
+
     def _build(self) -> None:
-        total_len = 0
+        lengths = []
         for d in self.docs:
-            toks = self._tok(d.text)
-            c = Counter(toks); self.tf.append(c); self.doc_len.append(len(toks)); total_len += len(toks)
-            for w in c.keys(): self.df[w] += 1
-        self.avgdl = (total_len / self.N) if self.N else 0.0
-    def _idf(self, q: str) -> float:
-        n_q = self.df.get(q, 0)
-        if n_q == 0: return 0.0
-        return math.log(1 + (self.N - n_q + 0.5) / (n_q + 0.5))
-    def score(self, i: int, query_toks: List[str]) -> float:
-        dl = self.doc_len[i] or 1
-        K = self.k1 * (1 - self.b + self.b * dl / (self.avgdl or 1))
-        s = 0.0; tf_i = self.tf[i]
-        for q in query_toks:
-            f = tf_i.get(q, 0)
-            if f == 0: continue
-            idf = self._idf(q); s += idf * (f * (self.k1 + 1)) / (f + K)
-        return s
-    def search(self, query: str, top_k: int = 5) -> List[Tuple[int,float]]:
-        q_toks = [t for t in self._tok(query) if t]
-        scores = [(i, self.score(i, q_toks)) for i in range(self.N)]
-        scores.sort(key=lambda x: x[1], reverse=True)
-        return [x for x in scores[:top_k] if x[1] > 0]
+            toks = _tokenize(d.text)
+            counts: Dict[str, int] = {}
+            for t in toks:
+                counts[t] = counts.get(t, 0) + 1
+            self.tf.append(counts)
+            lengths.append(len(toks))
+            for t in counts:
+                self.df[t] = self.df.get(t, 0) + 1
+        self.avgdl = (sum(lengths) / len(lengths)) if lengths else 0.0
+        self.N = len(self.docs)
 
-import json
+    def _idf(self, t: str) -> float:
+        n = self.df.get(t, 0)
+        return max(0.0, ((self.N - n + 0.5) / (n + 0.5))) if self.N else 0.0
 
-def load_docs_from_snapshot(snapshot_path: Path, max_chars: int = 200000) -> List[Doc]:
-    docs: List[Doc] = []
-    if not snapshot_path.exists(): return docs
-    for line in snapshot_path.read_text(encoding='utf-8', errors='ignore').splitlines():
-        if not line.strip(): continue
+    def score(self, q: str, idx: int) -> float:
+        qterms = _tokenize(q)
+        tf = self.tf[idx]
+        dl = sum(tf.values()) or 1
+        score = 0.0
+        for t in qterms:
+            f = tf.get(t, 0)
+            if not f:
+                continue
+            idf = self._idf(t)
+            denom = f + self.k1 * (1 - self.b + self.b * dl / (self.avgdl or 1))
+            score += idf * (f * (self.k1 + 1)) / denom
+        return score
+
+    def topk(self, q: str, k: int = 5) -> List[Tuple[float, Doc]]:
+        scored = [(self.score(q, i), self.docs[i]) for i in range(len(self.docs))]
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return scored[:k]
+
+def load_docs_from_snapshot(snapshot: Path) -> List[Doc]:
+    data = json.loads(snapshot.read_text(encoding="utf-8"))
+    out: List[Doc] = []
+    for item in data.get("docs", []):
+        out.append(Doc(path=item["path"], line=item["line"], text=item["text"]))
+    return out
+
+def best_citation(query: str, bm25: BM25, k: int = 3):
+    res = []
+    for score, d in bm25.topk(query, k=k):
+        res.append({"path": d.path, "line": d.line, "score": score, "text": d.text})
+    return res
+
+def build_snapshot(root: Path, includes: List[str], ignores: List[str], out: Path):
+    all_files: List[Path] = []
+    for pat in includes:
+        for p in root.rglob(pat):
+            if p.is_file():
+                all_files.append(p)
+
+    def _ignored(p: Path) -> bool:
+        rel = str(p.relative_to(root))
+        return any(fnmatch(rel, g) for g in ignores)
+
+    docs: List[Dict] = []
+    for p in all_files:
+        if _ignored(p):
+            continue
         try:
-            obj = json.loads(line); p = Path(obj['path'])
-            if not p.exists(): continue
-            txt = p.read_text(encoding='utf-8', errors='ignore')[:max_chars]
-            docs.append(Doc(str(p), txt))
+            lines = p.read_text(encoding="utf-8", errors="ignore").splitlines()
         except Exception:
             continue
-    return docs
+        for i, line in enumerate(lines, 1):
+            line_s = line.strip()
+            if not line_s:
+                continue
+            if len(line_s) > 1000:
+                line_s = line_s[:1000]
+            docs.append({"path": str(p), "line": i, "text": line_s})
 
-
-def best_citation(text: str, query: str, window: int = 3) -> Tuple[int,int,str]:
-    lines = text.splitlines(); toks = set(BM25._tok(query)); best = (0,0,0)
-    for i in range(len(lines)):
-        for j in range(i, min(len(lines), i+window)):
-            chunk = '
-'.join(lines[i:j+1]); score = sum(1 for t in toks if t in chunk.lower())
-            if score > best[0]: best = (score,i,j)
-    start, end = best[1], best[2]; snippet = '
-'.join(lines[start:end+1])
-    return start+1, end+1, snippet
+    out.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"root": str(root), "docs": docs, "total": len(docs)}
+    out.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return payload

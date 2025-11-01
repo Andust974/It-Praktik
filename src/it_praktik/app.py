@@ -62,3 +62,6 @@ app.include_router(tests_router)
 app.include_router(web_router)
 app.include_router(diff_router)
 app.include_router(metrics_router)
+from .rag_index_api import router as rag_index_router
+app.include_router(rag_index_router)
+app.include_router(metrics_router)
