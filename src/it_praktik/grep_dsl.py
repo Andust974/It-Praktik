@@ -1,7 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
-import yaml
 
 class DslError(Exception):
     pass
@@ -38,7 +37,10 @@ class Rules:
 
 def parse_rules_yaml(inline_yaml: str) -> Rules:
     try:
+        import yaml  # lazy import to avoid hard dep at import-time
         data = yaml.safe_load(inline_yaml) or {}
+    except ModuleNotFoundError as e:
+        raise DslError("PyYAML is required to parse rules. Install pyyaml.") from e
     except Exception as e:
         raise DslError(f"YAML parse error: {e}")
     if not isinstance(data, dict) or "rules" not in data:
@@ -53,11 +55,9 @@ def build_commands(paths: List[str], rules: Rules, tool: str = "rg") -> List[Dic
         if not r.if_contains:
             continue
         if tool == "rg":
-            # ripgrep
             pats = "|".join([f"{p}" for p in r.if_contains])
             cmd = ["rg", "-n", "-H"] + (r.flags or []) + [f"({pats})"] + paths
         else:
-            # POSIX grep
             pats = r.if_contains[0] if len(r.if_contains) == 1 else "\|".join(r.if_contains)
             cmd = ["grep", "-R", "-n", "-H"] + (r.flags or []) + [pats] + paths
         out.append({
